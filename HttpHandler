@@ -1,124 +1,76 @@
 <?php
 
 /**
- * http类
- * @package  htdocs
- * @version 1.0
+ * CURL发送Request请求,含POST和REQUEST
+ * @param string $url 请求的链接
+ * @param mixed $params 传递的参数
+ * @param string $method 请求的方法
+ * @param mixed $options CURL的参数
+ * @return array
  */
+function sendRequest($url, $params = [], $method = 'POST', $options = [])
+{
+    $method = strtoupper($method);
+    $protocol = substr($url, 0, 5);
+    $query_string = is_array($params) ? http_build_query($params) : $params;
 
-class HttpHandler {
-
-    public function post( $url, $data, $http_opts = null ) {
-
-        if (!isset($url) || empty($url)) {
-            return array( 'code' => 400, 'message' => '缺少请求链接' );
+    $ch = curl_init();
+    $defaults = [];
+    if ('GET' == $method)
+    {
+        $geturl = $query_string ? $url . (stripos($url, "?") !== FALSE ? "&" : "?") . $query_string : $url;
+        $defaults[CURLOPT_URL] = $geturl;
+    }
+    else
+    {
+        $defaults[CURLOPT_URL] = $url;
+        if ($method == 'POST')
+        {
+            $defaults[CURLOPT_POST] = 1;
         }
-        if (!isset($data) || empty($data)) {
-            return array( 'code' => 400 ,'message' => '缺少请求参数');
+        else
+        {
+            $defaults[CURLOPT_CUSTOMREQUEST] = $method;
         }
-
-        //解析链接，判断请求协议
-        $parse_url_array = parse_url($url);
-
-        $curl_handler = curl_init();
-
-        $options = array(
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_HEADER	 => false,
-            CURLOPT_USERAGENT => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.114 Safari/537.36',
-            CURLOPT_POST => TRUE,
-            CURLOPT_POSTFIELDS => $data
-        );
-        if ($parse_url_array['scheme'] == 'https') {
-            $options[CURLOPT_SSL_VERIFYPEER] = 0;
-            $options[CURLOPT_SSL_VERIFYHOST] = 0;
-            $options[CURLOPT_SSLVERSION] = 3;
-        }
-
-        if (is_array($http_opts)) {
-            foreach ($http_opts as $key => $value){
-                $options[$key] = $value;
-            }
-        }
-
-        curl_setopt_array($curl_handler, $options);
-        $curl_result = curl_exec($curl_handler);
-
-        $curl_http_status = curl_getinfo($curl_handler,CURLINFO_HTTP_CODE);
-        if ($curl_result == false) {
-            $error = curl_error($curl_handler);
-            curl_close($curl_handler);
-            return array( 'code' => $curl_http_status, 'message' => $error);
-        }
-        curl_close($curl_handler);
-
-        $encode = mb_detect_encoding($curl_result, array('ASCII', 'UTF-8','GB2312', 'GBK', 'BIG5'));
-        if ($encode != 'UTF-8') {
-            $curl_result = iconv($encode, 'UTF-8', $curl_result);
-        }
-
-        $result = json_decode($curl_result, true);
-        if (is_null($result)) {
-            $result = $curl_result;
-        }
-
-        return $result;
-
+        $defaults[CURLOPT_POSTFIELDS] = $query_string;
     }
 
-    public function get( $url, $http_opts = null ) {
+    $defaults[CURLOPT_HEADER] = FALSE;
+    $defaults[CURLOPT_USERAGENT] = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.98 Safari/537.36";
+    $defaults[CURLOPT_FOLLOWLOCATION] = TRUE;
+    $defaults[CURLOPT_RETURNTRANSFER] = TRUE;
+    $defaults[CURLOPT_CONNECTTIMEOUT] = 10;
+    $defaults[CURLOPT_TIMEOUT] = 10;
 
-        if (!isset($url) || empty($url)) {
-            return array( 'code' => 400, 'message' => '缺少请求链接' );
-        }
+    // disable 100-continue
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Expect:'));
 
-        //解析链接，判断请求协议
-        $parse_url_array = parse_url($url);
-
-        $curl_handler = curl_init();
-
-        $options = array(
-            CURLOPT_URL             => $url,
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_CONNECTTIMEOUT  => 10,
-            CURLOPT_HEADER			=> false,
-            CURLOPT_USERAGENT       => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.114 Safari/537.36',
-        );
-
-        if ($parse_url_array['scheme'] == 'https') {
-            $options[CURLOPT_SSL_VERIFYPEER] = 0;
-            $options[CURLOPT_SSL_VERIFYHOST] = 0;
-            $options[CURLOPT_SSLVERSION] = 3;
-        }
-
-        if (is_array($http_opts)) {
-            foreach ($http_opts as $key => $value){
-                $options[$key] = $value;
-            }
-        }
-
-        curl_setopt_array($curl_handler, $options);
-        $curl_result = curl_exec($curl_handler);
-        $curl_http_status = curl_getinfo($curl_handler,CURLINFO_HTTP_CODE);
-        if ($curl_result === false) {
-            curl_close($curl_handler);
-            return array( 'code' => 503, 'message' => '系统错误', 'data' => $curl_http_status );
-        }
-        $encode = mb_detect_encoding($curl_result, array('ASCII', 'UTF-8','GB2312', 'GBK', 'BIG5'));
-        if ($encode != 'UTF-8') {
-            $curl_result = iconv($encode, 'UTF-8', $curl_result);
-        }
-        $result = json_decode($curl_result,true);
-        if (is_null($result) || empty($result)) {
-            $result = $curl_result;
-        }
-
-        curl_close($curl_handler);
-
-        return $result;
-
+    if ('https' == $protocol)
+    {
+        $defaults[CURLOPT_SSL_VERIFYPEER] = FALSE;
+        $defaults[CURLOPT_SSL_VERIFYHOST] = FALSE;
     }
 
+    curl_setopt_array($ch, (array) $options + $defaults);
+
+    $ret = curl_exec($ch);
+    $err = curl_error($ch);
+
+    if (FALSE === $ret || !empty($err))
+    {
+        $errno = curl_errno($ch);
+        $info = curl_getinfo($ch);
+        curl_close($ch);
+        return [
+            'ret'   => FALSE,
+            'errno' => $errno,
+            'msg'   => $err,
+            'info'  => $info,
+        ];
+    }
+    curl_close($ch);
+    return [
+        'ret' => TRUE,
+        'msg' => $ret,
+    ];
 }
