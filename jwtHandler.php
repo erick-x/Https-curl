@@ -50,10 +50,12 @@
   */
  function jwt_decode(string $jwt, string $key)
  {
+    
     if( empty($key) ) return false;
 
      $token = explode('.',$jwt);
 
+  
      //token 长度验证
      if( count($token) !=3){
          return false;
@@ -63,15 +65,17 @@
 
      list($headerencr,$payloadencr,$sign) = $token;
 
-     $header = json_decode(base64Url($headerencr));
+     $header = json_decode(base64_decode($headerencr),1);
+  
      $alg = $header['alg'];
 
      $jwt = $headerencr.'.'.$payloadencr;
-     if(hash_hmac($jwt, $key, $alg) != $sign){
+    
+     if(hash_hmac($alg,$jwt, $key ) != $sign){
          return false;
      }
 
-     $payload = json_decode(base64Url($payloadencr));
+     $payload = json_decode(base64_decode($payloadencr),1);
 
      $time = $_SERVER['REQUEST_TIME'];
 
