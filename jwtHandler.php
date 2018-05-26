@@ -25,18 +25,18 @@
 
      //头部
      $header = json_encode(array('typ'=>'JWT','alg'=>$alg));
-     $header = encrypt($header,$key);
+     $header = base64Url($header);
      //token身份验证
      $payload = json_encode(array( "iss"=>'admin',"iat"=>$time,"exp" => $time+300,  'uid'=>$uid));    
-     $$payload = encrypt($payload,$key); 
+     $$payload = base64Url($payload); 
      //第一第二部分 
-     $jwt_body = $header.'+'.$$payload; 
+     $jwt_body = $header.'.'.$$payload; 
 
      //加密sign
      $signature = hash_hmac($alg, $jwt_body,$key);
 
      //第三部分
-     $jwt =  $jwt_body.'+'.$signature;
+     $jwt =  $jwt_body.'.'.$signature;
 
      return  $jwt;
  }
@@ -52,7 +52,7 @@
  {
     if( empty($key) ) return false;
 
-     $token = explode('+',$jwt);
+     $token = explode('.',$jwt);
 
      //token 长度验证
      if( count($token) !=3){
@@ -63,15 +63,15 @@
 
      list($headerencr,$payloadencr,$sign) = $token;
 
-     $header = json_decode(decrypt($headerencr,$key));
+     $header = json_decode(base64Url($headerencr));
      $alg = $header['alg'];
 
-     $jwt = $headerencr.'+'.$payloadencr;
+     $jwt = $headerencr.'.'.$payloadencr;
      if(hash_hmac($jwt, $key, $alg) != $sign){
          return false;
      }
 
-     $payload = json_decode(decrypt($payloadencr,$key));
+     $payload = json_decode(base64Url($payloadencr));
 
      $time = $_SERVER['REQUEST_TIME'];
 
@@ -84,70 +84,7 @@
     return $payload;
  }
 
-    
-    /**
-     * 加密字符串
-     * @param string $str 字符串
-     * @param string $key 加密key
-     * @param integer $expire 有效期（秒）     
-     * @return string
-     */
-    function encrypt($str,$key,$expire=0){
-        $expire = sprintf('%010d', $expire ? $expire + time():0);
-        $r = md5($key);
-        $c=0;
-        $v = "";
-        $str    =   $expire.$str;
-		$len = strlen($str);
-		$l = strlen($r);
-        for ($i=0;$i<$len;$i++){
-         if ($c== $l) $c=0;
-         $v.= substr($r,$c,1) .
-             (substr($str,$i,1) ^ substr($r,$c,1));
-         $c++;
-        }
-        return ed($v,$key);
-    }
-
-    /**
-     * 解密字符串
-     * @param string $str 字符串
-     * @param string $key 加密key
-     * @return string
-     */
-      function decrypt($str,$key)
-       {
-        $str = ed($str,$key);
-        $v = "";
-		$len = strlen($str);
-        for ($i=0;$i<$len;$i++){
-         $md5 = substr($str,$i,1);
-         $i++;
-         $v.= (substr($str,$i,1) ^ $md5);
-        }
-        $data   =    $v;
-        $expire = substr($data,0,10);
-        if($expire > 0 && $expire < time()) {
-            return '';
-        }
-        $data   = substr($data,10);
-        return $data;
-    }
-
-    /**
-     * 字符串处理
-     */
-   function ed($str,$key) 
-   {
-      $r = md5($key);
-      $c=0;
-      $v = "";
-	  $len = strlen($str);
-	  $l = strlen($r);
-      for ($i=0;$i<$len;$i++) {
-         if ($c==$l) $c=0;
-         $v.= substr($str,$i,1) ^ substr($r,$c,1);
-         $c++;
-      }
-      return $v;
-   }
+ function base64Url(string $input )
+ {
+    return str_replace('=', '', strtr(base64_encode($input), '+/', '-_'));
+ }
