@@ -88,7 +88,7 @@
     return $payload;
  }
 
- function base64Url(string $input )
+ function base64Url(string $input ):string
  {
     return str_replace('=', '', strtr(base64_encode($input), '+/', '-_'));
  }
